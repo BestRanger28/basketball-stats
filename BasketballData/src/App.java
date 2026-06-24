@@ -349,6 +349,25 @@ public class App {
         game.GetAwayData();
         return Predict(game);
     }
+    public static double[] predictCustomHome(String awayTeam, String[] homePlayerNames) {
+        if (players == null || network == null) {
+            throw new IllegalStateException("Predictor has not been initialized");
+        }
+        if (homePlayerNames.length != 10) {
+            throw new IllegalArgumentException("A custom team needs exactly 10 players");
+        }
+        GameData game = new GameData();
+        game.homeTeam = "CUSTOM";
+        game.awayTeam = awayTeam.toUpperCase();
+        game.homePlayers.addAll(customRoster(homePlayerNames));
+        game.awayPlayers.addAll(teamRoster(game.awayTeam));
+        if (game.awayPlayers.isEmpty()) {
+            throw new IllegalArgumentException("No model player data found for " + game.awayTeam);
+        }
+        game.GetHomeData();
+        game.GetAwayData();
+        return Predict(game);
+    }
     public static ArrayList<PlayerStats> teamRoster(String team) {
         ArrayList<PlayerStats> roster = new ArrayList<>();
         for (PlayerStats player : players.values()) {
@@ -369,6 +388,21 @@ public class App {
             }
         }
         return new ArrayList<>(regularRotation.subList(0, Math.min(10, regularRotation.size())));
+    }
+    private static ArrayList<PlayerStats> customRoster(String[] playerNames) {
+        ArrayList<PlayerStats> roster = new ArrayList<>();
+        for (String name : playerNames) {
+            PlayerStats player = players.get(name);
+            if (player == null) {
+                throw new IllegalArgumentException("No model data found for " + name);
+            }
+            if (roster.contains(player)) {
+                throw new IllegalArgumentException(name + " was selected more than once");
+            }
+            roster.add(player);
+        }
+        roster.sort(Comparator.comparingDouble((PlayerStats player) -> (double) player.minutes / player.games).reversed());
+        return roster;
     }
     private static void applySwaps(ArrayList<PlayerStats> roster, String[] outgoingNames, String[] incomingNames, String side) {
         if (outgoingNames.length != incomingNames.length) throw new IllegalArgumentException("Incomplete " + side + " team swaps");

@@ -30,11 +30,19 @@ public class PredictServer {
         Map<String, String> query = queryParameters(exchange.getRequestURI().getRawQuery());
         String home = query.get("home");
         String away = query.get("away");
-        if (home == null || away == null || home.equalsIgnoreCase(away)) {
+        String[] customHomePlayers = splitSwaps(query.get("homePlayers"));
+        boolean isCustomHome = customHomePlayers.length > 0;
+        if (away == null || (!isCustomHome && (home == null || home.equalsIgnoreCase(away)))) {
             sendJson(exchange, 400, "{\"error\":\"Provide different home and away team codes\"}");
             return;
         }
         try {
+            if (isCustomHome) {
+                double[] scores = App.predictCustomHome(away, customHomePlayers);
+                String winner = scores[0] > scores[1] ? "CUSTOM" : away.toUpperCase();
+                sendJson(exchange, 200, String.format("{\"homeTeam\":\"CUSTOM\",\"awayTeam\":\"%s\",\"homeScore\":%.0f,\"awayScore\":%.0f,\"winner\":\"%s\"}", away.toUpperCase(), scores[0], scores[1], winner));
+                return;
+            }
             double[] scores = App.predictTeams(home, away, splitSwaps(query.get("homeOut")), splitSwaps(query.get("homeIn")), splitSwaps(query.get("awayOut")), splitSwaps(query.get("awayIn")));
             String winner = scores[0] > scores[1] ? home.toUpperCase() : away.toUpperCase();
             sendJson(exchange, 200, String.format("{\"homeTeam\":\"%s\",\"awayTeam\":\"%s\",\"homeScore\":%.0f,\"awayScore\":%.0f,\"winner\":\"%s\"}", home.toUpperCase(), away.toUpperCase(), scores[0], scores[1], winner));
